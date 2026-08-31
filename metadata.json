@@ -1,0 +1,6 @@
+{
+  "name": "LeadsPilot - B2B Data Scraper & Lead Generator",
+  "description": "End-to-end B2B lead generation, web scraping, prospect enrichment, email verification, and CRM pipeline management tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
