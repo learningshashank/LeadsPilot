@@ -512,7 +512,7 @@ export function App() {
             />
           )}
 
-          {/* TAB 4: Zoho CRM Opportunity Pipeline */}
+          {/* TAB 4: LeadsPilot CRM Opportunity Pipeline */}
           {activeTab === 'pipeline' && (
             <CrmPipelineView
               leads={leads}

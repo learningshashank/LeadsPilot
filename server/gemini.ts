@@ -37,7 +37,7 @@ export interface ScrapeSearchOptions {
 export async function scrapeProspectsWithAI(options: ScrapeSearchOptions): Promise<Lead[]> {
   const ai = getAiClient();
   const count = options.count || 6;
-  const prompt = `You are an elite B2B Lead Generation & Data Scraping Engine like LeadsPilot and Zoho CRM Lead Gen.
+  const prompt = `You are an elite B2B Lead Generation & Data Scraping Engine for LeadsPilot CRM.
 Generate ${count} hyper-realistic, high-quality B2B prospects and decision makers based on the following search criteria:
 - Search Keyword/Query: ${options.query || 'B2B software decision makers'}
 - Target Industry: ${options.industry || 'Any high growth tech industry'}

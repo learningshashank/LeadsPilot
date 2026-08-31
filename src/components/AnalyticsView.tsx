@@ -154,12 +154,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </div>
 
-        {/* Zoho CRM Funnel Velocity (6 cols) */}
+        {/* LeadsPilot CRM Funnel Velocity (6 cols) */}
         <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
               <PieChart className="w-4 h-4 text-purple-600" />
-              <span>Zoho CRM Opportunity Conversion Funnel</span>
+              <span>LeadsPilot CRM Opportunity Conversion Funnel</span>
             </h3>
             <span className="text-[11px] text-slate-400 font-mono">Pipeline Velocity</span>
           </div>

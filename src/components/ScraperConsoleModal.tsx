@@ -169,7 +169,7 @@ export const ScraperConsoleModal: React.FC<ScraperConsoleModalProps> = ({
                   Autonomous B2B Lead Generator & Web Scraper
                 </h2>
                 <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  LeadsPilot & Zoho Live
+                  LeadsPilot Live
                 </span>
               </div>
               <p className="text-xs text-slate-500">
@@ -361,7 +361,7 @@ export const ScraperConsoleModal: React.FC<ScraperConsoleModalProps> = ({
                       />
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Examples: <button type="button" onClick={() => setTargetUrl('https://stripe.com')} className="text-indigo-600 hover:underline">stripe.com</button>, <button type="button" onClick={() => setTargetUrl('https://linear.app')} className="text-indigo-600 hover:underline">linear.app</button>, <button type="button" onClick={() => setTargetUrl('https://zoho.com')} className="text-indigo-600 hover:underline">zoho.com</button>, <button type="button" onClick={() => setTargetUrl('https://snowflake.com')} className="text-indigo-600 hover:underline">snowflake.com</button>
+                      Examples: <button type="button" onClick={() => setTargetUrl('https://stripe.com')} className="text-indigo-600 hover:underline">stripe.com</button>, <button type="button" onClick={() => setTargetUrl('https://linear.app')} className="text-indigo-600 hover:underline">linear.app</button>, <button type="button" onClick={() => setTargetUrl('https://notion.so')} className="text-indigo-600 hover:underline">notion.so</button>, <button type="button" onClick={() => setTargetUrl('https://snowflake.com')} className="text-indigo-600 hover:underline">snowflake.com</button>
                     </p>
                   </div>
 

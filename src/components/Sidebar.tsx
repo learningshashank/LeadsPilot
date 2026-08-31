@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Search,
       badge: 'Live',
       badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-      description: 'LeadsPilot & Zoho lead discovery',
+      description: 'LeadsPilot lead discovery',
     },
     {
       id: 'leads' as NavTab,
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'pipeline' as NavTab,
-      label: 'Zoho CRM Pipeline',
+      label: 'LeadsPilot CRM Pipeline',
       icon: Trello,
       count: inPipelineCount,
       description: 'Deal stages & qualification board',

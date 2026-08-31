@@ -104,7 +104,7 @@ export const CrmPipelineView: React.FC<CrmPipelineViewProps> = ({
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Trello className="w-5 h-5 text-indigo-600" />
-            <span>Zoho CRM Opportunity Pipeline</span>
+            <span>LeadsPilot CRM Opportunity Pipeline</span>
           </h2>
           <p className="text-xs text-slate-500">
             Track deal stages, outreach response velocity, and qualification milestones
