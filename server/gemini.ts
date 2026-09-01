@@ -20,6 +20,44 @@ function getAiClient(): GoogleGenAI | null {
   return aiInstance;
 }
 
+function extractJsonFromText(raw: string): any {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  
+  // 1. Try direct parse
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+
+  // 2. Try markdown block ```json ... ``` or ``` ... ```
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch {}
+  }
+
+  // 3. Try finding outermost JSON array [...]
+  const arrayStart = trimmed.indexOf('[');
+  const arrayEnd = trimmed.lastIndexOf(']');
+  if (arrayStart !== -1 && arrayEnd > arrayStart) {
+    try {
+      return JSON.parse(trimmed.slice(arrayStart, arrayEnd + 1));
+    } catch {}
+  }
+
+  // 4. Try finding outermost JSON object {...}
+  const objStart = trimmed.indexOf('{');
+  const objEnd = trimmed.lastIndexOf('}');
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      return JSON.parse(trimmed.slice(objStart, objEnd + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
 export interface ScrapeSearchOptions {
   query?: string;
   industry?: string;
@@ -110,7 +148,7 @@ For each extracted prospect, return complete, accurate details:
       });
 
       if (response.text) {
-        const parsed = JSON.parse(response.text);
+        const parsed = extractJsonFromText(response.text);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const timestamp = new Date().toISOString();
           return parsed.map((item: any, idx: number) => ({
@@ -226,63 +264,65 @@ Extract:
       });
 
       if (response.text) {
-        const parsed = JSON.parse(response.text);
-        const compData = parsed.company || {};
-        const compId = `comp_${Date.now()}`;
-        const company: Company = {
-          id: compId,
-          name: compData.name || companyName,
-          domain: domain,
-          logo: getRandomCompanyLogo(compData.industry),
-          industry: compData.industry || 'Software & SaaS',
-          subIndustry: compData.subIndustry || 'Cloud Solutions',
-          employeeCount: compData.employeeCount || '100-500',
-          revenueRange: compData.revenueRange || '$10M - $50M',
-          foundedYear: 2020,
-          headquarters: compData.headquarters || 'San Francisco, CA, USA',
-          phone: compData.phone || '+1 (800) 555-0199',
-          techStack: compData.techStack || ['AWS', 'React', 'Node.js', 'PostgreSQL', 'Stripe'],
-          website: `https://${domain}`,
-          linkedinUrl: `https://linkedin.com/company/${domain.split('.')[0]}`,
-          description: compData.description || `Leading provider in ${compData.industry || 'modern technology'}.`,
-          intentScore: (compData.intentScore === 'High' || compData.intentScore === 'Medium') ? compData.intentScore : 'High',
-          leadsCount: parsed.leads?.length || 3,
-        };
+        const parsed = extractJsonFromText(response.text);
+        if (parsed && typeof parsed === 'object') {
+          const compData = parsed.company || {};
+          const compId = `comp_${Date.now()}`;
+          const company: Company = {
+            id: compId,
+            name: compData.name || companyName,
+            domain: domain,
+            logo: getRandomCompanyLogo(compData.industry),
+            industry: compData.industry || 'Software & SaaS',
+            subIndustry: compData.subIndustry || 'Cloud Solutions',
+            employeeCount: compData.employeeCount || '100-500',
+            revenueRange: compData.revenueRange || '$10M - $50M',
+            foundedYear: 2020,
+            headquarters: compData.headquarters || 'San Francisco, CA, USA',
+            phone: compData.phone || '+1 (800) 555-0199',
+            techStack: compData.techStack || ['AWS', 'React', 'Node.js', 'PostgreSQL', 'Stripe'],
+            website: `https://${domain}`,
+            linkedinUrl: `https://linkedin.com/company/${domain.split('.')[0]}`,
+            description: compData.description || `Leading provider in ${compData.industry || 'modern technology'}.`,
+            intentScore: (compData.intentScore === 'High' || compData.intentScore === 'Medium') ? compData.intentScore : 'High',
+            leadsCount: parsed.leads?.length || 3,
+          };
 
-        const leads: Lead[] = (parsed.leads || []).map((l: any, idx: number) => ({
-          id: `lead_url_${Date.now()}_${idx}`,
-          firstName: l.firstName,
-          lastName: l.lastName,
-          fullName: `${l.firstName} ${l.lastName}`,
-          email: l.email || `${l.firstName.toLowerCase()}.${l.lastName.toLowerCase()}@${domain}`,
-          phone: l.phone || compData.phone || '+1 (555) 349-2010',
-          title: l.title,
-          seniority: normalizeSeniority(l.seniority || 'Director'),
-          department: l.department || 'Executive Leadership',
-          company: company.name,
-          companyDomain: domain,
-          companyLogo: company.logo,
-          companySize: company.employeeCount,
-          annualRevenue: company.revenueRange,
-          industry: company.industry,
-          subIndustry: company.subIndustry,
-          location: company.headquarters,
-          country: 'United States',
-          linkedin: `https://linkedin.com/in/${l.firstName.toLowerCase()}-${l.lastName.toLowerCase()}`,
-          website: `https://${domain}`,
-          leadScore: l.leadScore || 88,
-          emailStatus: normalizeEmailStatus(l.emailStatus || 'verified'),
-          leadStatus: 'new',
-          source: 'domain_extractor',
-          tags: ['URL Extracted', company.name, 'Verified Domain'],
-          notes: l.notes || `Scraped directly from ${domain} staff directory.`,
-          techStack: company.techStack,
-          intentScore: company.intentScore,
-          revealed: true,
-          createdAt: new Date().toISOString(),
-        }));
+          const leads: Lead[] = (parsed.leads || []).map((l: any, idx: number) => ({
+            id: `lead_url_${Date.now()}_${idx}`,
+            firstName: l.firstName,
+            lastName: l.lastName,
+            fullName: `${l.firstName} ${l.lastName}`,
+            email: l.email || `${l.firstName.toLowerCase()}.${l.lastName.toLowerCase()}@${domain}`,
+            phone: l.phone || compData.phone || '+1 (555) 349-2010',
+            title: l.title,
+            seniority: normalizeSeniority(l.seniority || 'Director'),
+            department: l.department || 'Executive Leadership',
+            company: company.name,
+            companyDomain: domain,
+            companyLogo: company.logo,
+            companySize: company.employeeCount,
+            annualRevenue: company.revenueRange,
+            industry: company.industry,
+            subIndustry: company.subIndustry,
+            location: company.headquarters,
+            country: 'United States',
+            linkedin: `https://linkedin.com/in/${l.firstName.toLowerCase()}-${l.lastName.toLowerCase()}`,
+            website: `https://${domain}`,
+            leadScore: l.leadScore || 88,
+            emailStatus: normalizeEmailStatus(l.emailStatus || 'verified'),
+            leadStatus: 'new',
+            source: 'domain_extractor',
+            tags: ['URL Extracted', company.name, 'Verified Domain'],
+            notes: l.notes || `Scraped directly from ${domain} staff directory.`,
+            techStack: company.techStack,
+            intentScore: company.intentScore,
+            revealed: true,
+            createdAt: new Date().toISOString(),
+          }));
 
-        return { company, leads };
+          return { company, leads };
+        }
       }
     } catch (err) {
       console.warn('URL scraper error with Gemini:', err);
@@ -459,7 +499,10 @@ Output in JSON format with:
       });
 
       if (response.text) {
-        return JSON.parse(response.text);
+        const parsed = extractJsonFromText(response.text);
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.subjectLines) && parsed.emailBody) {
+          return parsed;
+        }
       }
     } catch (err) {
       console.warn('Outreach AI error:', err);

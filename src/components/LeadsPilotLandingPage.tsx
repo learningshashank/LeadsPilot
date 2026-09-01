@@ -129,12 +129,13 @@ export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ on
           {/* Eyebrow badge */}
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200/80 text-amber-900 text-xs font-semibold shadow-2xs mb-6">
-//              <div className="flex text-amber-500">
-//                {[...Array(5)].map((_, i) => (
-//                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-//                ))}
-//              </div>
+              <div className="flex text-amber-500">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
               <span className="w-px h-3 bg-amber-200" />
+              <span>The Autonomous B2B Lead Engine & Contact Scraper</span>
             </div>
           </div>
 

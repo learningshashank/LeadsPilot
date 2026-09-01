@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db.js';
 import { scrapeProspectsWithAI, scrapeCompanyFromUrl, generatePersonalizedOutreach, verifyEmailAddress } from './server/gemini.js';
+import { scrapeCompanyFromUrlReal } from './server/hunter.js';
 import { ScrapeJob } from './src/types.js';
 
 dotenv.config();
@@ -318,7 +319,32 @@ app.post('/api/scrape/url', async (req, res) => {
 
     db.addScrapeJob(job);
 
-    const { company, leads } = await scrapeCompanyFromUrl(url);
+    let extractionResult: { company: any; leads: any[] };
+
+    if (process.env.HUNTER_API_KEY && process.env.HUNTER_API_KEY.trim().length > 0) {
+      try {
+        job.logs.push({
+          id: `log_u_h`,
+          time: new Date().toLocaleTimeString(),
+          message: 'Querying Hunter.io live Domain Search API for verified contacts...',
+          type: 'info',
+        });
+        extractionResult = await scrapeCompanyFromUrlReal(url, process.env.HUNTER_API_KEY.trim());
+      } catch (hunterErr: any) {
+        console.warn('Hunter.io API error, using AI extraction:', hunterErr.message);
+        job.logs.push({
+          id: `log_u_h_warn`,
+          time: new Date().toLocaleTimeString(),
+          message: `Hunter.io notice: ${hunterErr.message}. Falling back to AI scraper.`,
+          type: 'warn',
+        });
+        extractionResult = await scrapeCompanyFromUrl(url);
+      }
+    } else {
+      extractionResult = await scrapeCompanyFromUrl(url);
+    }
+
+    const { company, leads } = extractionResult;
 
     // Save to DB
     db.createOrUpdateCompany(company);
