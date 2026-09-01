@@ -94,7 +94,7 @@ export const ScraperConsoleModal: React.FC<ScraperConsoleModalProps> = ({
         ...prev,
         { id: '4', time: now(), msg: `Crawling completed. Extracted ${data.extractedCount} verified prospects!`, type: 'success' },
         { id: '5', time: now(), msg: `Performing DNS/MX syntax validation on generated corporate emails...`, type: 'info' },
-        { id: '6', time: now(), msg: `100% deliverability confirmed. Synchronized with Master Lead Database.`, type: 'success' },
+        { id: '6', time: now(), msg: `Synchronized with Master Lead Database.`, type: 'success' },
       ]);
 
       setExtractedResults(data.leads || []);

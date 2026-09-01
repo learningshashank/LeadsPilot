@@ -125,18 +125,16 @@ export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ on
       <section className="relative pt-12 pb-20 overflow-hidden bg-gradient-to-b from-slate-50/80 via-white to-white border-b border-slate-100">
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Eyebrow badge */}
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200/80 text-amber-900 text-xs font-semibold shadow-2xs mb-6">
-              <div className="flex text-amber-500">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
+//              <div className="flex text-amber-500">
+//                {[...Array(5)].map((_, i) => (
+//                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+//                ))}
+//              </div>
               <span className="w-px h-3 bg-amber-200" />
-              <span>Rated #1 on G2 for B2B Sales Intelligence & Prospecting</span>
             </div>
           </div>
 
