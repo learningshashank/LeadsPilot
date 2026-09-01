@@ -175,3 +175,52 @@ export interface DashboardStats {
   stageBreakdown: { stage: LeadPipelineStage; count: number; label: string }[];
   seniorityBreakdown: { seniority: string; count: number }[];
 }
+
+export type SupabaseCampaignStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type SupabaseScrapeStatus = 'pending' | 'success' | 'failed';
+export type SupabaseVerificationStatus = 'verified' | 'risky' | 'unverified' | 'none';
+
+export interface SupabaseCampaign {
+  id: string;
+  owner_user_id?: string;
+  name: string;
+  created_at: string;
+  status: SupabaseCampaignStatus;
+  platforms: string[];
+  total_profiles: number;
+  completed_count: number;
+  failed_count: number;
+  scrape_config: {
+    delayMs?: number;
+    proxyRegion?: string;
+    depth?: 'standard' | 'deep';
+    useHunter?: boolean;
+    [key: string]: any;
+  };
+}
+
+export interface SupabaseLead {
+  id: string;
+  campaign_id: string;
+  platform: string;
+  source_identifier: string;
+  raw_profile: Record<string, any>;
+  scrape_status: SupabaseScrapeStatus;
+  scrape_error?: string | null;
+  detected_company?: string | null;
+  detected_domain?: string | null;
+  candidate_emails?: string[] | null;
+  verified_email?: string | null;
+  verification_status: SupabaseVerificationStatus;
+  phone?: string | null;
+  lead_score?: number | null;
+  score_breakdown?: {
+    companyFit?: number;
+    emailDeliverability?: number;
+    seniorityWeight?: number;
+    intentSignal?: number;
+    reasoning?: string;
+    [key: string]: any;
+  } | null;
+  created_at: string;
+}

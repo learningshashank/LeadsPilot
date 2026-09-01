@@ -14,6 +14,15 @@ import { AnalyticsView } from './components/AnalyticsView.js';
 import { NewLeadModal } from './components/NewLeadModal.js';
 import { ListsModal } from './components/ListsModal.js';
 import { LeadsPilotLandingPage } from './components/LeadsPilotLandingPage.js';
+import { AuthLoginPage } from './components/AuthLoginPage.js';
+import { SettingsModal } from './components/SettingsModal.js';
+import { PlanModal } from './components/PlanModal.js';
+import { FaqModal } from './components/FaqModal.js';
+import { HelpModal } from './components/HelpModal.js';
+import { AuthModal } from './components/AuthModal.js';
+import { CreateCampaignModal } from './components/CreateCampaignModal.js';
+import { CampaignsDashboardView } from './components/CampaignsDashboardView.js';
+import { initSupabase, getSupabase } from './lib/supabase.js';
 import { 
   Lead, 
   Company, 
@@ -21,7 +30,8 @@ import {
   CampaignSequence, 
   ScrapeJob, 
   LeadFilterState, 
-  LeadPipelineStage 
+  LeadPipelineStage,
+  SupabaseCampaign 
 } from './types.js';
 import { fetchApi } from './utils.js';
 import { 
@@ -36,18 +46,41 @@ import {
   Search, 
   SlidersHorizontal,
   Flame,
-  CheckCircle2
+  CheckCircle2,
+  Database
 } from 'lucide-react';
 
 export function App() {
-  // Application View: 'landing' (LeadsPilot landing page) or 'app' (B2B Lead & Prospect Engine Workspace)
-  const [viewMode, setViewMode] = useState<'landing' | 'app'>('landing');
+  // Application View: 'landing' (Main Landing Page), 'login' (Sign In Page), or 'app' (Main Leads & Campaign Engine)
+  const [viewMode, setViewMode] = useState<'landing' | 'login' | 'app'>('landing');
 
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState<NavTab>('prospects');
+  const [activeTab, setActiveTab] = useState<NavTab>('supabase_campaigns');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedListId, setSelectedListId] = useState<string | undefined>(undefined);
+
+  // Supabase Auth & Current User
+  const [currentUser, setCurrentUser] = useState<any>({
+    id: 'usr_shashank_leadspilot',
+    email: 'learnings.shashank@gmail.com',
+    user_metadata: {
+      full_name: 'Shashank',
+      avatar_initials: 'LS',
+    },
+  });
+
+  // Modal Controllers
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCreateCampaignModalOpen, setIsCreateCampaignModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isScraperModalOpen, setIsScraperModalOpen] = useState(false);
+  const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
+  const [isListsModalOpen, setIsListsModalOpen] = useState(false);
+  const [activeDetailLead, setActiveDetailLead] = useState<Lead | null>(null);
 
   // Data Store
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -55,7 +88,7 @@ export function App() {
   const [lists, setLists] = useState<LeadList[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignSequence[]>([]);
   const [jobs, setJobs] = useState<ScrapeJob[]>([]);
-  const [creditsRemaining, setCreditsRemaining] = useState<number>(485);
+  const [creditsRemaining, setCreditsRemaining] = useState<number>(2450);
   const [loading, setLoading] = useState(true);
 
   // Table Selection & Sorting
@@ -73,12 +106,6 @@ export function App() {
     leadStatuses: [],
     minScore: 0,
   });
-
-  // Modal Controllers
-  const [isScraperModalOpen, setIsScraperModalOpen] = useState(false);
-  const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
-  const [isListsModalOpen, setIsListsModalOpen] = useState(false);
-  const [activeDetailLead, setActiveDetailLead] = useState<Lead | null>(null);
 
   // 1. Fetch Master Data
   const loadLeads = useCallback(async () => {
@@ -144,7 +171,45 @@ export function App() {
       setLoading(false);
     }
     init();
+
+    async function initSupabaseClient() {
+      try {
+        const res = await fetch('/api/config');
+        const config = await res.json();
+        if (config.supabaseUrl && config.supabaseAnonKey) {
+          const client = await initSupabase(config.supabaseUrl, config.supabaseAnonKey);
+          if (client) {
+            const { data: { session } } = await client.auth.getSession();
+            if (session?.user) {
+              setCurrentUser(session.user);
+            }
+
+            client.auth.onAuthStateChange((_event, session) => {
+              if (session?.user) {
+                setCurrentUser(session.user);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase config initialization:', err);
+      }
+    }
+    initSupabaseClient();
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (e) {
+      console.warn('Sign out notice:', e);
+    }
+    setCurrentUser(null);
+    setViewMode('landing'); // Route back to Main Landing Page as shown in screenshot!
+  };
 
   useEffect(() => {
     loadLeads();
@@ -345,10 +410,30 @@ export function App() {
   const verifiedCount = leads.filter(l => l.emailStatus === 'verified').length;
   const inPipelineCount = leads.filter(l => l.leadStatus !== 'new').length;
 
+  // View 1: Main Landing Page
   if (viewMode === 'landing') {
-    return <LeadsPilotLandingPage onEnterApp={() => setViewMode('app')} />;
+    return (
+      <LeadsPilotLandingPage 
+        onEnterApp={() => setViewMode('app')} 
+        onOpenLogin={() => setViewMode('login')}
+      />
+    );
   }
 
+  // View 2: Split Screen Sign In Page (Screenshot 1 & 2)
+  if (viewMode === 'login') {
+    return (
+      <AuthLoginPage
+        onLoginSuccess={(user) => {
+          if (user) setCurrentUser(user);
+          setViewMode('app');
+        }}
+        onBackToLanding={() => setViewMode('landing')}
+      />
+    );
+  }
+
+  // View 3: Main Application Workspace
   return (
     <div className="flex flex-col h-screen w-screen bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
       {/* Top Navbar */}
@@ -365,6 +450,14 @@ export function App() {
         isFilterOpen={isFilterOpen}
         onToggleFilter={() => setIsFilterOpen(o => !o)}
         onGoToLanding={() => setViewMode('landing')}
+        currentUser={currentUser}
+        onOpenAuth={() => setViewMode('login')}
+        onSignOut={handleSignOut}
+        onOpenCreateCampaign={() => setIsCreateCampaignModalOpen(true)}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenPlan={() => setIsPlanModalOpen(true)}
+        onOpenFaq={() => setIsFaqModalOpen(true)}
+        onOpenHelp={() => setIsHelpModalOpen(true)}
       />
 
       {/* Main App Canvas */}
@@ -398,43 +491,27 @@ export function App() {
               minScore: 0,
             })
           }
-          isOpen={isFilterOpen && (activeTab === 'prospects' || activeTab === 'leads')}
+          isOpen={isFilterOpen}
           onClose={() => setIsFilterOpen(false)}
-          totalResultsCount={leads.length}
         />
 
-        {/* Active View Container */}
-        <main className="flex-1 overflow-y-auto p-5 bg-[#f8fafc]">
-          {/* TAB 1: Prospects Search & Scraper Grid */}
+        {/* Central Workspace Content Views */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto p-4 lg:p-6">
+          {/* TAB 1: Prospects Search & Filters View */}
           {activeTab === 'prospects' && (
             <div className="flex flex-col h-full space-y-4">
-              {/* Hero Banner with Quick Scrape triggers */}
-              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      LEADSPILOT PROSPECT ENGINE
-                    </span>
-                    <span className="text-xs text-slate-500">12M+ B2B Contacts Available</span>
-                  </div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Discover Verified Decision-Makers & Corporate Emails
+              <div className="flex items-center justify-between px-1">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-500" />
+                    <span>Live Prospect Discovery</span>
                   </h2>
-                  <p className="text-xs text-slate-600 max-w-2xl">
-                    Filter prospects by industry, seniority, and tech stack. Extract direct work emails with real-time deliverability verification.
+                  <p className="text-xs text-slate-500">
+                    Verified B2B contacts extracted and enriched across web domains and professional networks
                   </p>
                 </div>
-
-                <button
-                  onClick={() => setIsScraperModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl font-semibold text-xs text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs flex items-center gap-2 shrink-0 active:scale-95 transition-all"
-                >
-                  <Globe className="w-4 h-4 text-white" />
-                  <span>Launch Prospect Scraper</span>
-                </button>
               </div>
 
-              {/* Prospect Table */}
               <div className="flex-1 min-h-0">
                 <LeadTable
                   leads={leads}
@@ -443,9 +520,7 @@ export function App() {
                   onToggleSelectLead={handleToggleSelectLead}
                   onRevealContact={handleRevealContact}
                   onViewLeadDetail={lead => setActiveDetailLead(lead)}
-                  onOpenOutreachModal={lead => {
-                    setActiveDetailLead(lead);
-                  }}
+                  onOpenOutreachModal={lead => setActiveDetailLead(lead)}
                   onDeleteLead={handleDeleteLead}
                   onQuickVerifyLead={lead => {
                     handleUpdateLead(lead.id, { emailStatus: 'verified' });
@@ -468,7 +543,7 @@ export function App() {
               <div className="flex items-center justify-between px-1">
                 <div>
                   <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-indigo-600" />
+                    <Users className="w-5 h-5 text-amber-600" />
                     <span>Master Lead Database</span>
                   </h2>
                   <p className="text-xs text-slate-500">
@@ -498,6 +573,15 @@ export function App() {
                 />
               </div>
             </div>
+          )}
+
+          {/* TAB: Supabase Postgres Persistent Campaigns & Leads */}
+          {activeTab === 'supabase_campaigns' && (
+            <CampaignsDashboardView
+              onOpenCreateCampaign={() => setIsCreateCampaignModalOpen(true)}
+              onOpenAuth={() => setViewMode('login')}
+              currentUser={currentUser}
+            />
           )}
 
           {/* TAB 3: Companies & Accounts Directory */}
@@ -587,6 +671,56 @@ export function App() {
         onDeleteList={handleDeleteList}
         selectedLeadIdsForList={selectedLeadIds}
         onAddLeadsToList={handleAddLeadsToList}
+      />
+
+      {/* 5. Supabase Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={async () => {
+          const supabase = getSupabase();
+          if (supabase) {
+            const { data: { user } } = await supabase.auth.getUser();
+            setCurrentUser(user);
+          }
+        }}
+      />
+
+      {/* 6. Create Supabase Persistent Campaign Modal */}
+      <CreateCampaignModal
+        isOpen={isCreateCampaignModalOpen}
+        onClose={() => setIsCreateCampaignModalOpen(false)}
+        onCampaignCreated={(campaign) => {
+          setActiveTab('supabase_campaigns');
+        }}
+      />
+
+      {/* 7. Settings Modal (Screenshot 3) */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        currentUser={currentUser}
+        onUpdateUser={(updated) => setCurrentUser(updated)}
+      />
+
+      {/* 8. Plan & Credits Modal (Screenshot 3) */}
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
+        creditsRemaining={creditsRemaining}
+      />
+
+      {/* 9. FAQ Modal (Screenshot 3) */}
+      <FaqModal
+        isOpen={isFaqModalOpen}
+        onClose={() => setIsFaqModalOpen(false)}
+      />
+
+      {/* 10. Help & Support Modal (Screenshot 3) */}
+      <HelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+        currentUser={currentUser}
       />
     </div>
   );

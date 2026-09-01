@@ -33,9 +33,13 @@ import {
 
 interface LeadsPilotLandingPageProps {
   onEnterApp: () => void;
+  onOpenLogin?: () => void;
 }
 
-export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ onEnterApp }) => {
+export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ 
+  onEnterApp,
+  onOpenLogin,
+}) => {
   const [emailInput, setEmailInput] = useState('');
   const [activeTab, setActiveTab] = useState<'prospect' | 'ai' | 'sequences' | 'enrich'>('prospect');
   const [filterSeniority, setFilterSeniority] = useState('All');
@@ -45,7 +49,19 @@ export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ on
 
   const handleQuickSignup = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    onEnterApp();
+    if (onOpenLogin) {
+      onOpenLogin();
+    } else {
+      onEnterApp();
+    }
+  };
+
+  const handleLoginClick = () => {
+    if (onOpenLogin) {
+      onOpenLogin();
+    } else {
+      onEnterApp();
+    }
   };
 
   const handleGenerateSample = () => {
@@ -103,14 +119,14 @@ export const LeadsPilotLandingPage: React.FC<LeadsPilotLandingPageProps> = ({ on
           {/* Right Header CTAs */}
           <div className="flex items-center gap-3">
             <button
-              onClick={onEnterApp}
+              onClick={handleLoginClick}
               className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               Log In
             </button>
 
             <button
-              onClick={onEnterApp}
+              onClick={handleLoginClick}
               id="header-signup-btn"
               className="px-4.5 py-2.5 text-sm font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs hover:shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >

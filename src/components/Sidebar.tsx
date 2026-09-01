@@ -13,12 +13,14 @@ import {
   Search,
   CheckCircle,
   Clock,
-  Sparkles
+  Sparkles,
+  Database
 } from 'lucide-react';
 import { LeadList } from '../types.js';
 
 export type NavTab = 
   | 'prospects' 
+  | 'supabase_campaigns'
   | 'leads' 
   | 'companies' 
   | 'pipeline' 
@@ -60,6 +62,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'Live',
       badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
       description: 'LeadsPilot lead discovery',
+    },
+    {
+      id: 'supabase_campaigns' as NavTab,
+      label: 'Supabase Campaigns',
+      icon: Database,
+      badge: 'Postgres',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      description: 'Persistent RLS campaigns & leads',
     },
     {
       id: 'leads' as NavTab,

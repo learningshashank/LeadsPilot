@@ -5,7 +5,16 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/db.js';
 import { scrapeProspectsWithAI, scrapeCompanyFromUrl, generatePersonalizedOutreach, verifyEmailAddress } from './server/gemini.js';
 import { scrapeCompanyFromUrlReal } from './server/hunter.js';
+import { 
+  getSupabaseAdmin, 
+  isSupabaseConfigured, 
+  getPublicSupabaseConfig, 
+  verifyUserToken, 
+  createCampaignInSupabase,
+  extractAndEnrichProfile 
+} from './server/supabase.js';
 import { ScrapeJob } from './src/types.js';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -462,6 +471,369 @@ app.get('/api/export/csv', (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename="omnileads_export_${Date.now()}.csv"`);
   res.status(200).send(csvContent);
+});
+
+// 10. Supabase Persistent Database & Campaign Routes
+app.get('/api/config', (req, res) => {
+  res.json(getPublicSupabaseConfig());
+});
+
+app.get('/api/supabase/schema', (req, res) => {
+  try {
+    const schemaPath = path.join(process.cwd(), 'schema.sql');
+    let sql = '';
+    if (fs.existsSync(schemaPath)) {
+      sql = fs.readFileSync(schemaPath, 'utf8');
+    }
+    res.json({ success: true, sql, isConfigured: isSupabaseConfigured() });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Fetch user campaigns from Supabase
+app.get('/api/supabase/campaigns', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(200).json({ 
+        success: true, 
+        isConfigured: false, 
+        campaigns: [],
+        message: 'Supabase is not configured yet. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable.' 
+      });
+    }
+
+    const authHeader = req.headers.authorization;
+    let userId: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const user = await verifyUserToken(token);
+      if (user) userId = user.id;
+    }
+
+    let query = client
+      .from('campaigns')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (userId) {
+      query = query.eq('owner_user_id', userId);
+    }
+
+    const { data: campaigns, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, isConfigured: true, campaigns: campaigns || [] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create a new campaign + pending leads in Supabase
+app.post('/api/supabase/campaigns', async (req, res) => {
+  try {
+    const { name, platforms, profiles, scrapeConfig } = req.body;
+
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one profile or domain URL is required.' });
+    }
+
+    const authHeader = req.headers.authorization;
+    let userId: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const user = await verifyUserToken(token);
+      if (user) userId = user.id;
+    }
+
+    const result = await createCampaignInSupabase({
+      ownerUserId: userId,
+      name: name || `Campaign ${new Date().toLocaleDateString()}`,
+      platforms: Array.isArray(platforms) ? platforms : ['LinkedIn'],
+      profiles,
+      scrapeConfig,
+    });
+
+    res.status(201).json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('Error creating campaign in Supabase:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Fetch leads for a specific campaign
+app.get('/api/supabase/campaigns/:id/leads', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(200).json({ success: true, isConfigured: false, leads: [] });
+    }
+
+    const { data: leads, error } = await client
+      .from('leads')
+      .select('*')
+      .eq('campaign_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, leads: leads || [] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update campaign in Supabase
+app.patch('/api/supabase/campaigns/:id', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { data, error } = await client
+      .from('campaigns')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete campaign from Supabase
+app.delete('/api/supabase/campaigns/:id', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { error } = await client
+      .from('campaigns')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, message: 'Campaign deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Insert leads into campaign
+app.post('/api/supabase/campaigns/:id/leads', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { leads } = req.body;
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ success: false, error: 'Expected leads array' });
+    }
+
+    const { data, error } = await client
+      .from('leads')
+      .insert(leads.map(l => ({ ...l, campaign_id: req.params.id })))
+      .select('*');
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.status(201).json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update a lead in Supabase
+app.patch('/api/supabase/leads/:id', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { data, error } = await client
+      .from('leads')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete a lead from Supabase
+app.delete('/api/supabase/leads/:id', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { error } = await client
+      .from('leads')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.json({ success: true, message: 'Lead deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Trigger enrichment on a specific Supabase lead
+app.post('/api/supabase/leads/:id/enrich', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { data: lead, error: fetchErr } = await client
+      .from('leads')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchErr || !lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found in Supabase' });
+    }
+
+    // Run extraction & enrichment
+    const enriched = await extractAndEnrichProfile(lead.source_identifier, lead.platform, { useHunter: true });
+
+    const { data: updatedLead, error: updateErr } = await client
+      .from('leads')
+      .update({
+        scrape_status: 'success',
+        scrape_error: null,
+        detected_company: enriched.company,
+        detected_domain: enriched.domain,
+        candidate_emails: enriched.candidateEmails,
+        verified_email: enriched.verifiedEmail,
+        verification_status: enriched.verificationStatus,
+        phone: enriched.phone,
+        lead_score: enriched.leadScore,
+        score_breakdown: enriched.scoreBreakdown,
+        raw_profile: {
+          ...lead.raw_profile,
+          ...enriched.raw,
+          manual_enriched_at: new Date().toISOString(),
+        },
+      })
+      .eq('id', lead.id)
+      .select('*')
+      .single();
+
+    if (updateErr) {
+      return res.status(500).json({ success: false, error: updateErr.message });
+    }
+
+    res.json({ success: true, data: updatedLead });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Export leads for a campaign directly from Supabase to CSV
+app.get('/api/supabase/campaigns/:id/export-csv', async (req, res) => {
+  try {
+    const client = getSupabaseAdmin();
+    if (!client) {
+      return res.status(400).json({ success: false, error: 'Supabase is not configured' });
+    }
+
+    const { data: campaign } = await client
+      .from('campaigns')
+      .select('name')
+      .eq('id', req.params.id)
+      .single();
+
+    const { data: leads, error } = await client
+      .from('leads')
+      .select('*')
+      .eq('campaign_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    const headers = [
+      'Lead ID',
+      'Campaign ID',
+      'Platform',
+      'Source Identifier',
+      'Scrape Status',
+      'Detected Company',
+      'Detected Domain',
+      'Verified Email',
+      'Verification Status',
+      'Candidate Emails',
+      'Phone',
+      'Lead Score',
+      'Created At',
+    ];
+
+    const rows = (leads || []).map(l => [
+      `"${l.id}"`,
+      `"${l.campaign_id}"`,
+      `"${l.platform}"`,
+      `"${(l.source_identifier || '').replace(/"/g, '""')}"`,
+      `"${l.scrape_status}"`,
+      `"${(l.detected_company || '').replace(/"/g, '""')}"`,
+      `"${(l.detected_domain || '').replace(/"/g, '""')}"`,
+      `"${(l.verified_email || '').replace(/"/g, '""')}"`,
+      `"${l.verification_status}"`,
+      `"${(l.candidate_emails || []).join('; ').replace(/"/g, '""')}"`,
+      `"${(l.phone || '').replace(/"/g, '""')}"`,
+      l.lead_score ?? '',
+      `"${l.created_at}"`,
+    ].join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const safeName = (campaign?.name || 'campaign').toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}_supabase_leads.csv"`);
+    res.status(200).send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Vite Middleware for SPA Frontend
